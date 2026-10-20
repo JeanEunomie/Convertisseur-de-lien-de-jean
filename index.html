@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Convertisseur Facebook</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#0f172a;color:#fff;font-family:system-ui;min-height:100vh;display:grid;place-items:center;padding:18px}
+main{width:min(650px,100%);background:#1e293b;border-radius:22px;padding:24px}
+h1{margin-top:0}
+input{width:100%;padding:16px;border:1px solid #475569;border-radius:13px;background:#0f172a;color:#fff;font-size:16px}
+button,.open-link{width:100%;margin-top:12px;padding:14px;border:0;border-radius:13px;background:#1877f2;color:#fff;font-weight:800;font-size:16px;cursor:pointer}
+.open-link{display:block;text-align:center;text-decoration:none}
+.secondary{background:#334155}
+#r{display:none;margin-top:18px;padding:15px;background:#0f172a;border-radius:13px;word-break:break-all}
+.warning{color:#fbbf24;font-weight:800}
+.instructions{margin-top:15px;padding:14px;background:#1e293b;border-radius:10px;line-height:1.5;font-size:14px}
+#manualBox{margin-top:18px;padding-top:18px;border-top:1px solid #334155}
+#help{display:none;margin-top:12px;padding:14px;background:#1e293b;border-radius:10px;line-height:1.5;font-size:14px}
+.success{margin-top:15px;padding:14px;background:#1e293b;border-radius:10px;word-break:break-all}
+.muted{color:#94a3b8;font-size:13px}
+</style>
+</head>
+<body>
+<main>
+<h1>Convertisseur Facebook</h1>
+<p>Colle un lien Facebook <b>/share/…</b>.</p>
+<input id="u" placeholder="https://www.facebook.com/share/...">
+<button onclick="go()">Convertir</button>
+<div id="r"></div>
+<p class="muted">Aucun identifiant Facebook, mot de passe ou cookie n'est demandé.</p>
+</main>
+
+<script>
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+function cleanManualUrl(url){
+    try{
+        let u=new URL(url);
+        if(u.hostname!=="facebook.com" && !u.hostname.endsWith(".facebook.com")) return null;
+
+        if(u.pathname.toLowerCase()==="/profile.php" && u.searchParams.get("id")){
+            let id=u.searchParams.get("id");
+            if(/^\d+$/.test(id)) return "https://www.facebook.com/profile.php?id="+id;
+        }
+
+        let keep=new URLSearchParams();
+        ["id","story_fbid","fbid","v"].forEach(k=>{
+            if(u.searchParams.has(k)) keep.set(k,u.searchParams.get(k));
+        });
+
+        let path=u.pathname.replace(/\/+$/,"");
+        if(!path) path="/";
+        let result="https://www.facebook.com"+path;
+        if([...keep].length) result+="?"+keep.toString();
+        return result;
+    }catch(e){ return null; }
+}
+
+function manualClean(){
+    const input=document.getElementById("manualUrl");
+    const result=document.getElementById("manualResult");
+    let cleaned=cleanManualUrl(input.value.trim());
+
+    if(!cleaned){
+        result.innerHTML='<div class="success">⚠️ Colle une adresse Facebook valide.</div>';
+        return;
+    }
+
+    result.innerHTML=`<div class="success"><b>Lien propre :</b><br><br>${esc(cleaned)}<button id="copyManual">Copier</button></div>`;
+    document.getElementById("copyManual").onclick=async()=>{
+        await navigator.clipboard.writeText(cleaned);
+        document.getElementById("copyManual").textContent="Copié !";
+    };
+}
+
+function toggleHelp(){
+    let h=document.getElementById("help");
+    h.style.display=h.style.display==="block" ? "none" : "block";
+}
+
+function showFallback(b, originalUrl){
+    b.innerHTML=`
+        <div class="warning">⚠️ Facebook bloque la conversion automatique</div>
+        <p>Tu peux terminer la conversion directement avec ton navigateur.</p>
+
+        <a class="open-link" href="${esc(originalUrl)}" target="_blank" rel="noopener noreferrer">
+            🌐 Ouvrir le lien Facebook
+        </a>
+
+        <div class="instructions">
+            <b>Procédure :</b><br><br>
+            1️⃣ Ouvre le lien ci-dessus.<br><br>
+            2️⃣ Attends que le profil Facebook s'affiche.<br><br>
+            3️⃣ Appuie sur la <b>barre d'adresse de ton navigateur</b>.<br><br>
+            4️⃣ Copie toute l'adresse affichée.<br><br>
+            5️⃣ Reviens ici et colle-la dans la case ci-dessous.
+        </div>
+
+        <button class="secondary" onclick="toggleHelp()">📱 Facebook s'ouvre dans l'application ?</button>
+
+        <div id="help">
+            <b>🤖 Android</b><br><br>
+            Fais un appui long sur <b>« Ouvrir le lien Facebook »</b> et choisis
+            <b>« Ouvrir dans un nouvel onglet »</b> ou <b>« Ouvrir dans le navigateur »</b> si proposé.<br><br>
+            Si Facebook s'ouvre toujours automatiquement : <b>Paramètres → Applications → Facebook → Ouvrir par défaut</b>,
+            puis désactive l'ouverture automatique des liens compatibles.<br><br>
+
+            <b>🍎 iPhone / iPad</b><br><br>
+            Fais un appui long sur <b>« Ouvrir le lien Facebook »</b> et choisis l'ouverture dans un nouvel onglet.
+            Si l'application Facebook s'ouvre quand même, copie le lien et colle-le directement dans la barre d'adresse de Safari.
+        </div>
+
+        <div id="manualBox">
+            <b>📋 Colle ici le lien obtenu :</b>
+            <input id="manualUrl" placeholder="https://www.facebook.com/..." style="margin-top:10px">
+            <button onclick="manualClean()">Nettoyer le lien</button>
+            <div id="manualResult"></div>
+        </div>`;
+}
+
+async function go(){
+    const b=document.getElementById("r");
+    const originalUrl=document.getElementById("u").value.trim();
+
+    b.style.display="block";
+    b.textContent="Conversion…";
+
+    try{
+        let x=await fetch("/api/resolve",{
+            method:"POST",
+            headers:{"Content-Type":"application/json"},
+            body:JSON.stringify({url:originalUrl})
+        });
+
+        let d=await x.json();
+
+        if(
+            d.blocked === true ||
+            (d.final_url && (
+                d.final_url.includes("facebook.com/login") ||
+                d.final_url.includes("/login/")
+            ))
+        ){
+            showFallback(b, originalUrl);
+            return;
+        }
+
+        if(!x.ok) throw Error(d.error || "Erreur");
+
+        b.innerHTML=`<b>✅ Lien final :</b><br><br>${esc(d.final_url)}<button id="c">Copier</button>`;
+        document.getElementById("c").onclick=async()=>{
+            await navigator.clipboard.writeText(d.final_url);
+            document.getElementById("c").textContent="Copié !";
+        };
+
+    }catch(e){
+        b.textContent=e.message;
+    }
+}
+</script>
+</body>
+</html>
